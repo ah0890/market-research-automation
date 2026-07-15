@@ -14,6 +14,10 @@ Phase 1 validates the full pipeline end-to-end but is deliberately scoped down:
 
 Phase 2 will remove the row limit and extend logging/error-handling polish for unlimited rows — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#phased-plan) for what changes.
 
+## Testing without a funded DataForSEO account
+
+Set `USE_MOCK_API=true` in `.env` to run the entire pipeline — input validation, batching, normalization, and the 4-sheet report — without making any network calls. Search Volume and Google Trends data is fabricated locally (deterministic per keyword, so repeated runs are stable) purely so the report format and error handling can be exercised end-to-end. `DATAFORSEO_LOGIN`/`DATAFORSEO_PASSWORD` are not required in this mode. **Never leave this on in production** — DataForSEO remains the application's one real data source; a `MOCK MODE ACTIVE` warning is logged whenever it's enabled so fabricated reports are never mistaken for real ones.
+
 ## Requirements
 
 - Python 3.12+ (tested with 3.14)
@@ -78,8 +82,9 @@ See [examples/example_output.xlsx](examples/example_output.xlsx) — a **static,
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` | API credentials (HTTP Basic Auth) | — (required) |
+| `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` | API credentials (HTTP Basic Auth) | — (required unless `USE_MOCK_API=true`) |
 | `DATAFORSEO_BASE_URL` | API base URL | `https://api.dataforseo.com` |
+| `USE_MOCK_API` | Skip DataForSEO entirely and fabricate data locally for testing | `false` |
 | `INPUT_FILE_PATH` | Input workbook path | `data/input/products.xlsx` |
 | `OUTPUT_DIR` | Output directory | `data/output` |
 | `REQUEST_TIMEOUT_SECONDS` | Per-HTTP-request timeout | `30` |

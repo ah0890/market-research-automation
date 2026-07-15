@@ -9,6 +9,7 @@ from pathlib import Path
 from api.dataforseo_client import DataForSeoClient
 from api.exceptions import DataForSeoError
 from api.google_trends import fetch_google_trends
+from api.mock_provider import fetch_google_trends_mock, fetch_search_volume_mock
 from api.search_volume import fetch_search_volume
 from config import AppConfig
 from excel.excel_reader import read_input_workbook
@@ -31,16 +32,24 @@ class MarketResearchService:
 
     def __init__(self, config: AppConfig) -> None:
         self._config = config
-        self._client = DataForSeoClient(
-            base_url=config.dataforseo_base_url,
-            login=config.dataforseo_login,
-            password=config.dataforseo_password,
-            timeout_seconds=config.request_timeout_seconds,
-            retry_count=config.retry_count,
-            retry_backoff_seconds=config.retry_backoff_seconds,
-            poll_interval_seconds=config.task_poll_interval_seconds,
-            max_wait_seconds=config.task_max_wait_seconds,
-        )
+        self._client: DataForSeoClient | None = None
+
+        if config.use_mock_api:
+            logger.warning(
+                "MOCK MODE ACTIVE: DataForSEO will not be called. "
+                "All Search Volume and Google Trends data in this report is fabricated for local testing only."
+            )
+        else:
+            self._client = DataForSeoClient(
+                base_url=config.dataforseo_base_url,
+                login=config.dataforseo_login,
+                password=config.dataforseo_password,
+                timeout_seconds=config.request_timeout_seconds,
+                retry_count=config.retry_count,
+                retry_backoff_seconds=config.retry_backoff_seconds,
+                poll_interval_seconds=config.task_poll_interval_seconds,
+                max_wait_seconds=config.task_max_wait_seconds,
+            )
 
     def run(self, max_rows: int | None = None) -> Path:
         """Execute the full pipeline and return the path to the written report.
@@ -81,6 +90,15 @@ class MarketResearchService:
     def _safe_fetch_search_volume(self, keywords: list[str]) -> tuple[dict, str | None]:
         if not keywords:
             return {}, None
+
+        if self._config.use_mock_api:
+            return (
+                fetch_search_volume_mock(
+                    keywords, self._config.default_location_code, self._config.default_language_code
+                ),
+                None,
+            )
+
         try:
             return (
                 fetch_search_volume(
@@ -101,6 +119,12 @@ class MarketResearchService:
     def _safe_fetch_trends(self, keywords: list[str]) -> tuple[dict, dict]:
         if not keywords:
             return {}, {}
+
+        if self._config.use_mock_api:
+            return fetch_google_trends_mock(
+                keywords, self._config.default_location_code, self._config.default_language_code
+            )
+
         return fetch_google_trends(
             self._client,
             keywords,
